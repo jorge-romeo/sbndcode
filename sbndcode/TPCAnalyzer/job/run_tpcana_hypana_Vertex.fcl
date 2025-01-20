@@ -1,0 +1,43 @@
+#include "tpcanalyzer_config.fcl"
+#include "simulationservices_sbnd.fcl"
+#include "hitfindermodules_sbnd.fcl"
+#include "signalservices_sbnd.fcl"
+#include "hypana_config.fcl"
+
+process_name: Ana
+
+source:
+{
+module_type:RootInput
+maxEvents: -1
+}
+
+services:
+{
+TFileService: { fileName: "analyzeItOutput_R%r-%R_SR%s-%S.root"}
+@table::sbnd_services
+BackTrackerService: @local::standard_backtrackerservice
+ParticleInventoryService: @local::standard_particleinventoryservice
+SpaceCharge:               @local::sbnd_spacecharge
+}
+
+physics:
+{
+	analyzers:
+	{
+		ana: @local::tpcana
+		hypanatree:@local::hypAna
+	}
+	path0: [ana, hypanatree]
+	end_paths: [path0]
+}
+
+physics.analyzers.hypanatree.SaveMCParticles: true
+physics.analyzers.hypanatree.SaveMCTrajectories: true
+physics.analyzers.hypanatree.DebugModeMC: true
+physics.analyzers.ana.SaveWires: false
+physics.analyzers.ana.SaveSpacePoints: false
+physics.analyzers.ana.SaveVertex: true
+
+
+#include "enable_spacecharge_services_sbnd.fcl"

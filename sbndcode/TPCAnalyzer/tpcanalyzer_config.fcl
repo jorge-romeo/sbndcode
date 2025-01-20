@@ -1,0 +1,62 @@
+BEGIN_PROLOG
+tpcana:
+{
+  module_type:  "TPCAnalyzer"
+
+  MCTruthLabel: "generator"
+  SimEnergyDepositLabel: "ionandscint"
+  SimEnergyDepositInstanceLabel: "priorSCE"
+  SimEnergyDepositLabelOut: "ionandscintout"
+  SimEnergyDepositInstanceLabelOut: ""
+  SimChannelLabel: "simtpc2d:simpleSC"
+  RecobWireLabel: "caldata"
+  RawDigitLabel: "daq"
+  HitLabel: "gaushit"
+  SpacePointLabel: "pandora"
+  VertexLabel: "pandora"
+  Reco2Label: "pandora"
+  TrackLabel: "pandoraTrack"
+  ClusterLabel: "pandora"
+  CalorimetryLabel: "pandoraCalo"
+  ParticleIDLabel: "pandoraPid"
+
+  SaveReco2: true
+  SaveTruth: true
+  SaveSimED: true
+  SaveSimEDOut: false
+  SaveWaveforms: false
+  SaveWires: false
+  SaveHits: true
+  SaveSpacePoints: true
+  SaveVertex: true
+  CreateTPCMap: false
+  ApplyFiducialCut: true
+  ApplyVertexSCE: true
+
+  UseSlices: true
+  UseSimChannels: false
+}
+
+## TPCAnalyzer configuration for PANDORA reprocessing
+tpcanaPANDORALambda: @local::tpcana
+tpcanaPANDORALambda.HitLabel: "originsAna"
+tpcanaPANDORALambda.SpacePointLabel: "pandoraLambda"
+tpcanaPANDORALambda.VertexLabel: "pandoraLambda"
+tpcanaPANDORALambda.Reco2Label: "pandoraLambda"
+tpcanaPANDORALambda.TrackLabel: "pandoraTrackLambda"
+tpcanaPANDORALambda.ClusterLabel: "pandoraLambda"
+
+## TPCAnalyzer configuration for pmalgtrack
+tpcanaPmalg: @local::tpcana
+tpcanaPmalg.UseSlices: false
+tpcanaPmalg.HitLabel: "originsAna"
+tpcanaPmalg.SpacePointLabel: "pmalgtrackmaker"
+tpcanaPmalg.VertexLabel: "pmalgtrackmaker"
+tpcanaPmalg.Reco2Label: "pmalgtrackmaker"
+tpcanaPmalg.TrackLabel: "pmalgtrackmaker"
+tpcanaPmalg.ClusterLabel: "linecluster"
+
+
+END_PROLOG
+
+
