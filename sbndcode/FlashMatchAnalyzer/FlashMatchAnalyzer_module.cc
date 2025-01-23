@@ -4,10 +4,10 @@
 // File:        TPCAnalyzer_module.cc
 ////////////////////////////////////////////////////////////////////////
 
-#include "sbndcode/TPCAnalyzer/TPCAnalyzer_module.hh"
+#include "sbndcode/FlashMatchAnalyzer/FlashMatchAnalyzer_module.hh"
 
 // Constructor
-test::TPCAnalyzer::TPCAnalyzer(fhicl::ParameterSet const& p)
+test::FlashMatchAnalyzer::FlashMatchAnalyzer(fhicl::ParameterSet const& p)
   : EDAnalyzer{p},
   fMCTruthLabel( p.get<std::string>("MCTruthLabel", "generator") ),
   fMCLabel( p.get<std::string>("MCLabel", "largeant") ),
@@ -26,6 +26,7 @@ test::TPCAnalyzer::TPCAnalyzer(fhicl::ParameterSet const& p)
   fVertexLabel( p.get<std::string>("VertexLabel", "pandora") ),
   fCalorimetryLabel( p.get<std::string>("CalorimetryLabel", "pandoraCalo") ),
   fParticleIDLabel( p.get<std::string>("ParticleIDLabel", "pandoraPid") ),
+  fOpFlashesModuleLabel( p.get<std::vector<std::string>>("OpFlashesModuleLabel") ),
   fSaveReco2( p.get<bool>("SaveReco2", "false") ),
   fSaveTruth( p.get<bool>("SaveTruth", "true") ),
   fSaveSimED( p.get<bool>("SaveSimED", "true") ),
@@ -40,6 +41,9 @@ test::TPCAnalyzer::TPCAnalyzer(fhicl::ParameterSet const& p)
   fApplyVertexSCE( p.get<bool>("ApplyVertexSCE", "true") ),
   fUseSlices( p.get<bool>("UseSlices", "true") ),
   fUseSimChannels( p.get<bool>("UseSimChannels", "false") ),
+  fSaveOpHits( p.get<bool>("SaveOpHits") ),  
+  fSaveOpFlashes( p.get<bool>("SaveOpFlashes") ),  
+  fSaveFlashWindow( p.get<std::vector<double>>("SaveFlashWindow")),
   fNChannels(fGeom->Nchannels())
   // More initializers here.
 {
@@ -69,12 +73,12 @@ test::TPCAnalyzer::TPCAnalyzer(fhicl::ParameterSet const& p)
 }
 
 // Fill Hits function
-void test::TPCAnalyzer::FillHits(int clusterId, std::vector<art::Ptr<recob::Hit>> hitVect, std::map<int, art::Ptr<recob::SpacePoint>> hitToSpacePointMap){
+void test::FlashMatchAnalyzer::FillHits(int clusterId, std::vector<art::Ptr<recob::Hit>> hitVect, std::map<int, art::Ptr<recob::SpacePoint>> hitToSpacePointMap){
   for (const art::Ptr<recob::Hit> &hit: hitVect){
     fHitsView.push_back(hit->View());
     fHitsPeakTime.push_back(hit->PeakTime());
     fHitsIntegral.push_back(hit->Integral());
-    fHitsSummedADC.push_back(hit->SummedADC());
+    fHitsSummedADC.push_back(hit->ROISummedADC());
     fHitsChannel.push_back(hit->Channel());
     fHitsAmplitude.push_back(hit->PeakAmplitude());
     fHitsRMS.push_back(hit->RMS());
@@ -105,7 +109,7 @@ void test::TPCAnalyzer::FillHits(int clusterId, std::vector<art::Ptr<recob::Hit>
 }
 
 // Fill reco2 function
-void test::TPCAnalyzer::FillReco2(art::Event const& e, std::vector<art::Ptr<recob::PFParticle>> pfpVect, std::map<int, art::Ptr<recob::SpacePoint>> hitToSpacePointMap){
+void test::FlashMatchAnalyzer::FillReco2(art::Event const& e, std::vector<art::Ptr<recob::PFParticle>> pfpVect, std::map<int, art::Ptr<recob::SpacePoint>> hitToSpacePointMap){
 
     resetRecoVars();
     
@@ -193,8 +197,6 @@ void test::TPCAnalyzer::FillReco2(art::Event const& e, std::vector<art::Ptr<reco
           FillHits(pfp->Self(), hitVect, hitToSpacePointMap);
         }
       }
-     
-
 
       //Read the tracks and store the PFParticle start/end points
       std::vector<art::Ptr<recob::Track>> track_v = pfp_track_assns.at(pfp.key());
@@ -235,12 +237,11 @@ void test::TPCAnalyzer::FillReco2(art::Event const& e, std::vector<art::Ptr<reco
     if(isNeutrino || !fUseSlices){
       fTree->Fill();
     }
-    
 
 }
 
 // Main function
-void test::TPCAnalyzer::analyze(art::Event const& e)
+void test::FlashMatchAnalyzer::analyze(art::Event const& e)
 {
   // Implementation of required member function here.
   auto fSCE = lar::providerFrom<spacecharge::SpaceChargeService>();
@@ -342,7 +343,6 @@ void test::TPCAnalyzer::analyze(art::Event const& e)
 
 
     // --- Fill the true information
-    // --- Fill the true lambda variables
     // Get the handles
     art::Handle<std::vector<simb::MCTruth>> mctruthHandle;
     std::vector<art::Ptr<simb::MCTruth>> mctruthVect;
@@ -353,20 +353,6 @@ void test::TPCAnalyzer::analyze(art::Event const& e)
     std::vector<art::Ptr<simb::MCParticle>> mcpVect;
     e.getByLabel(fMCLabel, mcparticleHandle);
     art::fill_ptr_vector(mcpVect, mcparticleHandle);
-
-    bool fFillLambdaTrue = true;
-    if(fFillLambdaTrue){
-      LambdaTruthManager lambdaMgr(mctruthVect, mcpVect);
-      if(lambdaMgr.HasLambdaVDecayed()){
-        fLambdaPionPDir.push_back(lambdaMgr.PionMomentumDirection().X());
-        fLambdaPionPDir.push_back(lambdaMgr.PionMomentumDirection().Y());
-        fLambdaPionPDir.push_back(lambdaMgr.PionMomentumDirection().Z());
-        fLambdaProtonPDir.push_back(lambdaMgr.ProtonMomentumDirection().X());
-        fLambdaProtonPDir.push_back(lambdaMgr.ProtonMomentumDirection().Y());
-        fLambdaProtonPDir.push_back(lambdaMgr.ProtonMomentumDirection().Z());
-      }
-    }
-
   }
 
  
@@ -560,7 +546,7 @@ void test::TPCAnalyzer::analyze(art::Event const& e)
       for (const art::Ptr<recob::Hit> &hit: hitsVect){
         fHitsPeakTime.push_back(hit->PeakTime());
         fHitsIntegral.push_back(hit->Integral());
-        fHitsSummedADC.push_back(hit->SummedADC());
+        fHitsSummedADC.push_back(hit->ROISummedADC());
         fHitsChannel.push_back(hit->Channel());
         fHitsAmplitude.push_back(hit->PeakAmplitude());
         fHitsRMS.push_back(hit->RMS());
@@ -667,25 +653,112 @@ void test::TPCAnalyzer::analyze(art::Event const& e)
     }
 
   } //end SaveReco2 block
+  
+    // --- Saving OpFlashes
+  if(fSaveOpFlashes){
+
+    _nopflash=0;
+    _flash_id.clear();
+    _flash_time.clear();
+    _flash_total_pe.clear();
+    _flash_pe_v.clear();
+    _flash_tpc.clear();
+    _flash_y.clear();
+    _flash_yerr.clear();
+    _flash_z.clear();
+    _flash_zerr.clear();
+    _flash_x.clear();
+    _flash_xerr.clear();
+    _flash_ophit_time.clear();
+    _flash_ophit_risetime.clear();
+    _flash_ophit_starttime.clear();
+    _flash_ophit_amp.clear();
+    _flash_ophit_area.clear();
+    _flash_ophit_width.clear();
+    _flash_ophit_pe.clear();
+    _flash_ophit_ch.clear();
+
+    art::Handle< std::vector<recob::OpFlash> > opflashListHandle;
+
+    // Loop over all the OpFlash labels
+    for (size_t s = 0; s < fOpFlashesModuleLabel.size(); s++) {
+      
+      e.getByLabel(fOpFlashesModuleLabel[s], opflashListHandle);
+      if(!opflashListHandle.isValid()){
+        std::cout << "OpFlash with label " << fOpFlashesModuleLabel[s] << " not found..." << std::endl;
+        throw std::exception();
+      }
+      art::FindManyP<recob::OpHit> flashToOpHitAssns(opflashListHandle, e, fOpFlashesModuleLabel[s]);
+
+      for (unsigned int i = 0; i < opflashListHandle->size(); ++i) {
+        // Get OpFlash
+        art::Ptr<recob::OpFlash> FlashPtr(opflashListHandle, i);
+        recob::OpFlash Flash = *FlashPtr;
+
+        if( (Flash.AbsTime()<fSaveFlashWindow[0]) || (Flash.AbsTime()>fSaveFlashWindow[1])) continue;
+
+        _flash_id.push_back( _nopflash );
+        _flash_time.push_back( Flash.AbsTime() );
+        _flash_total_pe.push_back( Flash.TotalPE() );
+        _flash_pe_v.push_back( Flash.PEs() );
+        _flash_tpc.push_back( s );
+        _flash_y.push_back( Flash.YCenter() );
+        _flash_yerr.push_back( Flash.YWidth() );
+        _flash_x.push_back( Flash.XCenter() );
+        _flash_xerr.push_back( Flash.XWidth() );
+        _flash_z.push_back( Flash.ZCenter() );
+        _flash_zerr.push_back( Flash.ZWidth() );
+        _nopflash++;
+
+        if(fSaveOpHits){
+          
+          _flash_ophit_time.push_back({});
+          _flash_ophit_risetime.push_back({});
+          _flash_ophit_starttime.push_back({});
+          _flash_ophit_amp.push_back({});
+          _flash_ophit_area.push_back({});
+          _flash_ophit_width.push_back({});
+          _flash_ophit_pe.push_back({});
+          _flash_ophit_ch.push_back({});
+          
+          std::vector<art::Ptr<recob::OpHit>> ophit_v = flashToOpHitAssns.at(i);
+          for (auto ophit : ophit_v) {
+            _flash_ophit_time[_nopflash-1].push_back(ophit->PeakTimeAbs());
+            _flash_ophit_risetime[_nopflash-1].push_back(ophit->RiseTime());
+            _flash_ophit_starttime[_nopflash-1].push_back(ophit->StartTime());
+            _flash_ophit_amp[_nopflash-1].push_back(ophit->Amplitude());
+            _flash_ophit_area[_nopflash-1].push_back(ophit->Area());
+            _flash_ophit_width[_nopflash-1].push_back(ophit->Width());
+            _flash_ophit_pe[_nopflash-1].push_back(ophit->PE());
+            _flash_ophit_ch[_nopflash-1].push_back(ophit->OpChannel());
+          }
+
+        }
+
+      }
+  
+    }
+    fOpAnaTree->Fill();
+  }
 
   // if save reco1, save one event per entry
   if(fSaveReco2==false){
     fTree->Fill();
   }
-  
+
 }
 
 
-int test::TPCAnalyzer::VertexToDriftTick(double vt, double vx){
+int test::FlashMatchAnalyzer::VertexToDriftTick(double vt, double vx){
   return int( ( vt/1000 + ( fWirePlanePosition-std::abs(vx) )/fDriftVelocity - fTriggerOffsetTPC)/fTickPeriodTPC );
 }
 
 
-bool test::TPCAnalyzer::PointInFV(double x, double y, double z){
+bool test::FlashMatchAnalyzer::PointInFV(double x, double y, double z){
   return ( std::abs(x)>fXFidCut1 && std::abs(x)<fXFidCut2 && std::abs(y)<fYFidCut && z>fZFidCut1 && z<fZFidCut2 );
 }
 
-void test::TPCAnalyzer::resetTrueVars(){
+void test::FlashMatchAnalyzer::resetTrueVars(){
   
   if(fSaveTruth){
     fTruePrimariesPDG.clear();
@@ -713,9 +786,6 @@ void test::TPCAnalyzer::resetTrueVars(){
     fIntNElectronP = 0;
     fIntNElectronM = 0;
     fIntNLambda = 0;
-
-    fLambdaProtonPDir.clear();
-    fLambdaPionPDir.clear();
   }
 
   if(fSaveSimED){
@@ -739,7 +809,7 @@ void test::TPCAnalyzer::resetTrueVars(){
   }
 }
 
-void test::TPCAnalyzer::resetSimVars(){
+void test::FlashMatchAnalyzer::resetSimVars(){
   if(fSaveWaveforms){
     fRawChannelID.clear();
     fRawChannelID.resize(fNChannels, -1);
@@ -750,7 +820,7 @@ void test::TPCAnalyzer::resetSimVars(){
   }
 }
 
-void test::TPCAnalyzer::resetWireVars()
+void test::FlashMatchAnalyzer::resetWireVars()
 {
   fNROIs=0;
   fWireID.clear();
@@ -758,7 +828,7 @@ void test::TPCAnalyzer::resetWireVars()
   fWireADC.clear();
 }
 
-void test::TPCAnalyzer::resetRecoVars()
+void test::FlashMatchAnalyzer::resetRecoVars()
 {
 
   if(fSaveHits){
@@ -806,7 +876,7 @@ void test::TPCAnalyzer::resetRecoVars()
   }
 }
 
-void test::TPCAnalyzer::resetVars()
+void test::FlashMatchAnalyzer::resetVars()
 {
   resetTrueVars();
   resetSimVars();

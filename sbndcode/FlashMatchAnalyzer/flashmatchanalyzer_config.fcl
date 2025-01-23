@@ -1,7 +1,7 @@
 BEGIN_PROLOG
-tpcana:
+flashmatchana:
 {
-  module_type:  "TPCAnalyzer"
+  module_type:  "FlashMatchAnalyzer"
 
   MCTruthLabel: "generator"
   SimEnergyDepositLabel: "ionandscint"
@@ -37,24 +37,6 @@ tpcana:
   UseSimChannels: false
 }
 
-## TPCAnalyzer configuration for PANDORA reprocessing
-tpcanaPANDORALambda: @local::tpcana
-tpcanaPANDORALambda.HitLabel: "originsAna"
-tpcanaPANDORALambda.SpacePointLabel: "pandoraLambda"
-tpcanaPANDORALambda.VertexLabel: "pandoraLambda"
-tpcanaPANDORALambda.Reco2Label: "pandoraLambda"
-tpcanaPANDORALambda.TrackLabel: "pandoraTrackLambda"
-tpcanaPANDORALambda.ClusterLabel: "pandoraLambda"
-
-## TPCAnalyzer configuration for pmalgtrack
-tpcanaPmalg: @local::tpcana
-tpcanaPmalg.UseSlices: false
-tpcanaPmalg.HitLabel: "originsAna"
-tpcanaPmalg.SpacePointLabel: "pmalgtrackmaker"
-tpcanaPmalg.VertexLabel: "pmalgtrackmaker"
-tpcanaPmalg.Reco2Label: "pmalgtrackmaker"
-tpcanaPmalg.TrackLabel: "pmalgtrackmaker"
-tpcanaPmalg.ClusterLabel: "linecluster"
 
 
 END_PROLOG

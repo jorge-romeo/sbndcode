@@ -3,7 +3,6 @@
 #include "hitfindermodules_sbnd.fcl"
 #include "signalservices_sbnd.fcl"
 
-#include "lambdapidana_config.fcl"
 
 process_name: Ana
 
@@ -26,10 +25,9 @@ physics:
 {
 	analyzers:
 	{
-		ana: @local::tpcana
-		caloAna: @local::LambdaPIDAna
+		ana: @local::flashmatchana
 	}
-	path0: [ana, caloAna]
+	path0: [ana]
 	end_paths: [path0]
 }
 
@@ -38,15 +36,10 @@ physics.analyzers.ana.SaveSpacePoints: true
 physics.analyzers.ana.SaveSimED: false
 physics.analyzers.ana.SaveSimEDOut: false
 physics.analyzers.ana.SaveReco2: true
-physics.analyzers.ana.SaveWires: true
+physics.analyzers.ana.SaveWires: false
+physics.analyzers.ana.SaveOpFlashes: true
+physics.analyzers.ana.OpFlashesModuleLabel: ["opflashtpc0","opflashtpc1"]
 
 physics.analyzers.ana.RecobWireLabel: "sptpc2d:gauss"
 physics.analyzers.ana.CalorimetryLabel: "pandoraCaloData"
 physics.analyzers.ana.ParticleIDLabel: "pandoraPidData"
-
-physics.analyzers.caloAna.LambdaPIDAlgo.MCTruthLabel: ""
-physics.analyzers.caloAna.LambdaPIDAlgo.Reco2Label: "pandora"
-physics.analyzers.caloAna.LambdaPIDAlgo.TrackLabel: "pandoraTrack"
-physics.analyzers.caloAna.LambdaPIDAlgo.CalorimetryLabel: "pandoraCaloData"
-physics.analyzers.caloAna.LambdaPIDAlgo.ParticleIDLabel: "pandoraPidData" 
-physics.analyzers.caloAna.LambdaPIDAlgo.UseBestView: true

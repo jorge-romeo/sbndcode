@@ -25,7 +25,7 @@ set(
 
  )
 
-cet_build_plugin(TPCAnalyzer art::Module SOURCE TPCAnalyzer_module.cc LIBRARIES ${MODULE_LIBRARIES} )
+cet_build_plugin(FlashMatchAnalyzer art::Module SOURCE FlashMatchAnalyzer_module.cc LIBRARIES ${MODULE_LIBRARIES} )
 
 install_source()
 install_fhicl()

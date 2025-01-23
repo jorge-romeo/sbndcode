@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////
-// Class:       TPCAnalyzer
+// Class:       FlashMatchAnalyzer
 // Plugin Type: analyzer (art v3_05_01)
-// File:        TPCAnalyzer_module.cc
+// File:        FlashMatchAnalyzer_module.cc
 ////////////////////////////////////////////////////////////////////////
 
 #include "art/Framework/Core/EDAnalyzer.h"
@@ -46,6 +46,9 @@
 #include "lardataobj/RecoBase/PFParticle.h"
 #include "lardataobj/RecoBase/SpacePoint.h"
 #include "lardataobj/RecoBase/Cluster.h"
+#include "lardataobj/RecoBase/OpFlash.h"
+#include "lardataobj/RecoBase/OpHit.h"
+#include "lardataobj/RawData/OpDetWaveform.h"
 #include "lardataobj/RecoBase/Hit.h"
 #include "lardataobj/RawData/RawDigit.h"
 #include "lardataobj/RecoBase/Wire.h"
@@ -53,8 +56,6 @@
 #include "lardataobj/RecoBase/Slice.h"
 #include "lardataobj/AnalysisBase/Calorimetry.h"
 #include "lardataobj/AnalysisBase/ParticleID.h"
-
-#include "sbndcode/HyperonAnalyzer/LambdaTruthManager/LambdaTruthManager.hh"
 
 
 #include "TTree.h"
@@ -81,23 +82,23 @@
 #define fDefaulNeutrinoID 99999
 
 namespace test {
-  class TPCAnalyzer
+  class FlashMatchAnalyzer
 ;
 }
 
 
-class test::TPCAnalyzer : public art::EDAnalyzer {
+class test::FlashMatchAnalyzer : public art::EDAnalyzer {
 public:
-  explicit TPCAnalyzer
+  explicit FlashMatchAnalyzer
 (fhicl::ParameterSet const& p);
   // The compiler-generated destructor is fine for non-base
   // classes without bare pointers or other resource use.
 
   // Plugins should not be copied or assigned.
-  TPCAnalyzer(TPCAnalyzer const&) = delete;
-  TPCAnalyzer(TPCAnalyzer&&) = delete;
-  TPCAnalyzer & operator=(TPCAnalyzer const&) = delete;
-  TPCAnalyzer & operator=(TPCAnalyzer &&) = delete;
+  FlashMatchAnalyzer(FlashMatchAnalyzer const&) = delete;
+  FlashMatchAnalyzer(FlashMatchAnalyzer&&) = delete;
+  FlashMatchAnalyzer & operator=(FlashMatchAnalyzer const&) = delete;
+  FlashMatchAnalyzer & operator=(FlashMatchAnalyzer &&) = delete;
 
   // Required functions.
   void analyze(art::Event const& e) override;
@@ -135,7 +136,8 @@ private:
   std::string fSpacePointLabel;
   std::string fVertexLabel;
   std::string fCalorimetryLabel;
-  std::string fParticleIDLabel;
+  std::string fParticleIDLabel;  
+  std::vector<std::string> fOpFlashesModuleLabel;
   bool fSaveReco2;
   bool fSaveTruth;
   bool fSaveSimED;
@@ -150,8 +152,13 @@ private:
   bool fApplyVertexSCE;
   bool fUseSlices;
   bool fUseSimChannels;
+  bool fSaveOpHits;
+  bool fSaveOpFlashes;
+  std::vector<double> fSaveFlashWindow;
+
 
   TTree* fTree;
+  TTree* fOpAnaTree;
   int fEventID, fRunID, fSubRunID;
 
   //True variables
@@ -180,8 +187,6 @@ private:
   int fIntNElectronM;
   int fIntNLambda;
   bool fIntInFV;
-  std::vector<double> fLambdaProtonPDir;
-  std::vector<double> fLambdaPionPDir;
 
   //True SimEnergyDeposits
   std::vector<double> fEnDepE;
@@ -220,6 +225,28 @@ private:
   std::vector<double> fHitsY;
   std::vector<double> fHitsZ;
 
+
+  // Flash variables
+  int _nopflash;
+  std::vector<int> _flash_id;
+  std::vector<double> _flash_time;
+  std::vector<double> _flash_total_pe;
+  std::vector<std::vector<double>> _flash_pe_v;
+  std::vector<double> _flash_y;
+  std::vector<double> _flash_yerr ;
+  std::vector<double> _flash_z;
+  std::vector<double> _flash_zerr;
+  std::vector<double> _flash_x;
+  std::vector<double> _flash_xerr;
+  std::vector<int> _flash_tpc;
+  std::vector<std::vector<double>> _flash_ophit_time;
+  std::vector<std::vector<double>> _flash_ophit_risetime;
+  std::vector<std::vector<double>> _flash_ophit_starttime;
+  std::vector<std::vector<double>>_flash_ophit_amp;
+  std::vector<std::vector<double>> _flash_ophit_area;
+  std::vector<std::vector<double>> _flash_ophit_width;
+  std::vector<std::vector<double>> _flash_ophit_pe;
+  std::vector<std::vector<int>> _flash_ophit_ch;
 
   // Slice variables
   int fNSlices;
@@ -278,7 +305,7 @@ private:
 
 
 
-void test::TPCAnalyzer::beginJob()
+void test::FlashMatchAnalyzer::beginJob()
 {
   // Implementation of optional member function here.
   art::ServiceHandle<art::TFileService> tfs;
@@ -287,6 +314,7 @@ void test::TPCAnalyzer::beginJob()
   fTree->Branch("RunID", &fRunID, "RunID/I");
   fTree->Branch("SubRunID", &fSubRunID, "SubRunID/I");
   fTree->Branch("EventID", &fEventID, "EventID/I");
+
 
   if(fSaveTruth){
     fTree->Branch("TruePrimariesPDG", &fTruePrimariesPDG);
@@ -314,8 +342,6 @@ void test::TPCAnalyzer::beginJob()
     fTree->Branch("IntNElectronM", &fIntNElectronM, "IntNElectronM/I");
     fTree->Branch("IntNLambda", &fIntNLambda, "IntNLambda/I");
     fTree->Branch("IntInFV", &fIntInFV, "IntInFV/O");
-    fTree->Branch("LambdaProtonPDir", &fLambdaProtonPDir);
-    fTree->Branch("LambdaPionPDir", &fLambdaPionPDir);
   }
 
   if(fSaveSimED){
@@ -402,10 +428,40 @@ void test::TPCAnalyzer::beginJob()
     fTree->Branch("PFTrackEnd", &fPFTrackEnd);
     fTree->Branch("PFPDGCode", &fPFPDGCode);
   }
+
+  fOpAnaTree = tfs->make<TTree>("OpAnaTree", "PDS Analysis Output Tree");
+  fOpAnaTree->Branch("RunID", &fRunID, "RunID/I");
+  fOpAnaTree->Branch("SubRunID", &fSubRunID, "SubRunID/I");
+  fOpAnaTree->Branch("EventID", &fEventID, "EventID/I");
+
+  // OpFlashes
+  if(fSaveOpFlashes){
+    fOpAnaTree->Branch("nopflash", &_nopflash, "nopflash/I");
+    fOpAnaTree->Branch("flash_id","std::vector<int>", &_flash_id);
+    fOpAnaTree->Branch("flash_time","std::vector<double>", &_flash_time);
+    fOpAnaTree->Branch("flash_total_pe", "std::vector<double>", &_flash_total_pe);
+    fOpAnaTree->Branch("flash_pe_v","std::vector<std::vector<double>>", &_flash_pe_v);
+    fOpAnaTree->Branch("flash_tpc", "std::vector<int>", &_flash_tpc);
+    fOpAnaTree->Branch("flash_y","std::vector<double>", &_flash_y);
+    fOpAnaTree->Branch("flash_yerr", "std::vector<double>", &_flash_yerr);
+    fOpAnaTree->Branch("flash_z","std::vector<double>", &_flash_z);
+    fOpAnaTree->Branch("flash_zerr", "std::vector<double>", &_flash_zerr);
+    fOpAnaTree->Branch("flash_x","std::vector<double>", &_flash_x);
+    fOpAnaTree->Branch("flash_xerr", "std::vector<double>", &_flash_xerr);
+    fOpAnaTree->Branch("flash_ophit_time", "std::vector<std::vector<double>>", &_flash_ophit_time);
+    fOpAnaTree->Branch("flash_ophit_risetime", "std::vector<std::vector<double>>", &_flash_ophit_risetime);
+    fOpAnaTree->Branch("flash_ophit_starttime", "std::vector<std::vector<double>>", &_flash_ophit_starttime);
+    fOpAnaTree->Branch("flash_ophit_amp", "std::vector<std::vector<double>>", &_flash_ophit_amp);
+    fOpAnaTree->Branch("flash_ophit_area", "std::vector<std::vector<double>>", &_flash_ophit_area);
+    fOpAnaTree->Branch("flash_ophit_width", "std::vector<std::vector<double>>", &_flash_ophit_width);
+    fOpAnaTree->Branch("flash_ophit_pe", "std::vector<std::vector<double>>", &_flash_ophit_pe);
+    fOpAnaTree->Branch("flash_ophit_ch", "std::vector<std::vector<int>>", &_flash_ophit_ch);
+  }
+
   fNAnalyzedEvents=0;
 }
 
-void test::TPCAnalyzer::endJob(){
+void test::FlashMatchAnalyzer::endJob(){
 
   if(fCreateTPCMap){
     std::ofstream fileout("TPCMapping.txt");
@@ -430,4 +486,4 @@ void test::TPCAnalyzer::endJob(){
 
 }
 
-DEFINE_ART_MODULE(test::TPCAnalyzer)
+DEFINE_ART_MODULE(test::FlashMatchAnalyzer)
