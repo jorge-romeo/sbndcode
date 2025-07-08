@@ -1,0 +1,20 @@
+#include "simpleROI_alg.fcl"
+
+
+BEGIN_PROLOG
+
+SBNDCALLOS:
+{
+  module_type:	"CALLOS"
+  InputLabel: "xarapucadecoder:XARAPUCAChannels"
+  ROIFinderAlg: @local::simpleROIAlg
+  PDTypes: ["xarapuca_vuv", "xarapuca_vis"]
+  ROI_samples: 768
+  StartToPeak: 200
+  DEBUG: true
+  Full_AverageWaveform: false
+  MaxADC: 4000
+  PEMode: true
+}
+
+END_PROLOG
